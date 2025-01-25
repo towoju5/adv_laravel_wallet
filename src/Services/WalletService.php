@@ -2,16 +2,21 @@
 
 namespace Towoju5\Wallet\Services;
 
+use Towoju5\LaravelWallet\Services\CurrencyExchangeService;
 use Towoju5\Wallet\Models\Wallet;
 
-class WalletService
+class WalletService extends Wallet
 {
     protected $currencyExchangeService;
     
     public static function getWallet($user, $currency = 'usd')
     {
         $role = $user->current_role ?? 'general';
-        return Wallet::firstOrCreate(['user_id' => $user->id, 'role' => $role, 'currency' => $currency]);
+        $wallet = Wallet::where(['user_id' => $user->id, 'role' => $role, 'currency' => $currency])->first();
+        if(!$wallet) {
+            $wallet = Wallet::create(['user_id' => $user->id, 'role' => $role, 'currency' => $currency]);
+        }
+        return $wallet;
     }
 
     public function __construct(CurrencyExchangeService $currencyExchangeService)

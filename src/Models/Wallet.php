@@ -15,38 +15,45 @@ class Wallet extends Model
         'title',
         'is_department',
         'department_id',
+        'role'
     ];
 
     protected $casts = [
-        'balance' => 'string',
+        // 'balance' => 'string',
         'meta' => 'array',
     ];
 
-    // Example constructor
-    public function __construct(array $attributes = [])
+    protected static function boot()
     {
-        parent::__construct($attributes);
-        $this->meta = [
-            'meta' => [
-                'code' => strtoupper($this->currency),
-                'symbol' => $this->getCurrencySymbol($this->currency),
-            ],
-            'name' => "{$this->currency} Wallet",
-            'slug' => $this->currency,
-        ];
+        parent::boot();
+
+        static::creating(function ($wallet) {
+            // var_dump($wallet['currency']); exit;
+            $wallet->meta = [
+                'meta' => [
+                    'code' => $wallet->currency,
+                    'symbol' => $wallet->getCurrencySymbol($wallet->currency),
+                ],
+                'name' => "{$wallet->currency} Wallet",
+                'slug' => $wallet->currency,
+            ];
+        });
     }
 
     // Fetching currency symbol based on currency code
     private function getCurrencySymbol($currency)
     {
-        $symbols = [
-            'ngn' => '₦',
-            // Add other currency symbols as needed
-        ];
+        if(is_string($currency)) {
+            $symbols = [
+                'ngn' => '₦',
+                'usd' => '$'
+            ];
+        } else {
+            return null;
+        }
 
         return $symbols[$currency] ?? null;
     }
-
 
     public function user()
     {
@@ -70,16 +77,17 @@ class Wallet extends Model
 
     public function deposit($amount, array $meta = [])
     {
-        if ($amount <= 0)
-            throw new WalletException("Deposit amount must be positive.");
-
+        if ($amount <= 0) {
+            throw new \Exception("Deposit amount must be positive.");
+        }
+        // var_dump($this->balance); exit;
         $balanceBefore = $this->balance;
         $this->balance += $amount;
         $balanceAfter = $this->balance;
 
         $this->save();
 
-        $this->transactions()->create([
+        return $this->transactions()->create([
             'type' => 'deposit',
             'amount' => (int) ($amount * 100),
             'balance_before' => (int) ($balanceBefore * 100),
@@ -91,10 +99,16 @@ class Wallet extends Model
         ]);
     }
 
+    public function withdraw($amount, array $meta = [])
+    {
+        return $this->withdrawal($amount, $meta);
+    }
+    
     public function withdrawal($amount, array $meta = [])
     {
-        if ($amount > $this->balance)
-            throw new WalletException("Insufficient balance.");
+        if ($amount > $this->balance) {
+            throw new \Exception("Insufficient balance.");
+        }
 
         $balanceBefore = $this->balance;
         $this->balance -= $amount;
@@ -102,7 +116,7 @@ class Wallet extends Model
 
         $this->save();
 
-        $this->transactions()->create([
+        return $this->transactions()->create([
             'type' => 'withdrawal',
             'amount' => (int) ($amount * 100),
             'balance_before' => (int) ($balanceBefore * 100),
